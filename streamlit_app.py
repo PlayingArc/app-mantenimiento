@@ -2,7 +2,6 @@ import streamlit as st
 import datetime                 #para calendario en filtros de fecha
 import pandas as pd             #data proccessing
 import altair as alt            #
-import plotly.express as px     #plotting
 import re
 
 #PAGE CONFIG

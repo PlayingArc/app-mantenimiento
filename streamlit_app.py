@@ -55,7 +55,8 @@ if uploaded_file is not None:
         # data engineering
         data['Mes'] = data.Fec_prog.dt.month
         data['Semana'] = data.Fec_prog.dt.isocalendar().week
-        data['Dia'] = data.Fec_prog.dt.day
+        data['Fecha'] = data.Fec_prog
+        data['Q'] = data.Fec_prog.dt.quarter
         data['FinDeSemana'] = data.Fec_prog.dt.weekday.map(lambda x: True if x >= 5 else False)
 
         # columnas redundantes, escogo quedarme con los nombres

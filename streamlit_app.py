@@ -75,19 +75,19 @@ if uploaded_file is not None:
 
         # diccionario de columns nombres legibles
 
-        mapeo_de_nombres = {'Tipo_mant': 'Tipo',
-                            'Nom_tipe': 'Componente',
-                            'Nom_plan': 'Zona',
-                            'Nom_equi': 'Equipo',
-                            'Nom_tare': 'Tarea',
-                            'Nom_trab': 'Trabajador',
-                            'Esti_hrs': 'Horas Estimadas',
-                            'Real_hrs': 'Horas Realizadas',
-                            'Costo_hr_': 'Costo por Hora ($/h)',
-                            'Totaltare': 'Costo Tarea ($)',
-                            'Fec_prog': 'Fecha Programada',
-                            'Fec_inic': 'Fecha Inicial',
-                            'Fec_term': 'Fecha Final'
+        mapeo_de_nombres = {'Tipo_mant' : 'Tipo',
+                            'Nom_tipe'  : 'Componente',
+                            'Nom_plan'  : 'Zona',
+                            'Nom_equi'  : 'Equipo',
+                            'Nom_tare'  : 'Tarea',
+                            'Nom_trab'  : 'Trabajador',
+                            'Esti_hrs'  : 'Horas Estimadas',
+                            'Real_hrs'  : 'Horas Realizadas',
+                            'Costo_hr_' : 'Costo por Hora ($/h)',
+                            'Totaltare' : 'Costo Tarea ($)',
+                            'Fec_prog'  : 'Fecha Programada',
+                            'Fec_inic'  : 'Fecha Inicial',
+                            'Fec_term'  : 'Fecha Final'
                             }
 
         data.rename(columns=mapeo_de_nombres, inplace=True)
@@ -148,13 +148,10 @@ if uploaded_file is not None:
 
         st.subheader("Diagrama de Area")
 
-        timeframes = ['Semana', 'Mes', 'Q', 'Fecha']
+        timeframes = ['Semana', 'Mes', 'Q', 'Dia']
         timeFrame = st.selectbox('Selecciona la escala de tiempo: ', timeframes)
-
-
-        st.subheader("Mapa de Calor")
-        st.subheader("Diagrama de Barras")
-        st.subheader("Gráfico circular")
+        timeDict = {'Semana': 'week', 'Mes' : 'month', 'Q' : 'quarter', 'Dia': 'dayofyear'}
+        timeFrame = timeDict[timeFrame]
 
     #Seleccion del tema
         selected_color_theme = 'reds'
@@ -228,7 +225,7 @@ if uploaded_file is not None:
 
         #horas de trabajo por fecha
         areas_time_plot = alt.Chart(selected_data).mark_area().encode(
-            alt.X(f'{timeFrame}:O'),
+            alt.X(f'{timeFrame}(Fecha Inicial):T'),
             alt.Y('sum(Horas Realizadas):Q'),
             alt.Color('Zona:N', scale=alt.Scale(scheme=selected_color_theme))
         ).interactive()
@@ -274,8 +271,8 @@ if uploaded_file is not None:
 
         #diagrama de barras
         stacked_bar_chart = alt.Chart(selected_data).mark_bar().encode(
-            alt.X('Trabajador:N', title=None, sort='-y'),
-            alt.Y('sum(Horas Realizadas):Q', title='Suma de Horas'),
+            alt.Y('Trabajador:N', title=None, sort='-x'),
+            alt.X('sum(Horas Realizadas):Q', title='Suma de Horas'),
             alt.Color('Trabajador:N',
                       legend=None),
             tooltip=['Trabajador:N', 'sum(Horas Realizadas):Q']
@@ -295,11 +292,11 @@ if uploaded_file is not None:
 
         # datos agrupados por tarea
         def make_pie_chart(datos_linea: pd.DataFrame, mostrar_n: int, color='Tarea'):
-            datos_pie = datos_linea.groupby(color, observed=False)['Horas Realizadas'].sum().sort_values(
+            datos_pie = datos_linea.groupby(color, observed=False)['Horas Realizadas'].count().sort_values(
                 ascending=False)
             datos_pie = pd.DataFrame({
                 color: list(datos_pie.index),
-                'Horas Realizadas': datos_pie
+                'Incidencias': datos_pie
             })
 
             # las tareas no muy comunes se agrupan en 'Otras'
@@ -308,9 +305,9 @@ if uploaded_file is not None:
             datos_pie.reset_index(drop=True, inplace=True)
 
             pie_chart = alt.Chart(datos_pie).mark_arc(innerRadius=50).encode(
-                alt.Color(f'{color}:N', sort=datos_pie[color]),
-                alt.Theta('Horas Realizadas:Q'),
-                tooltip=[f'{color}:N', 'Horas Realizadas']
+                alt.Color(f'{color}:N'),
+                alt.Theta('sum(Incidencias):Q', sort=datos_pie['Incidencias']),
+                tooltip=[f'{color}:N', 'sum(Incidencias):N']
             ).interactive()
             return pie_chart
 

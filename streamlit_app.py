@@ -92,19 +92,37 @@ if uploaded_file is not None:
 
         data.rename(columns=mapeo_de_nombres, inplace=True)
         return data
-    # returns cleaned data
-
     data = data_prep(data)
 
     with st.sidebar:
+        st.divider()
+        st.subheader('Generar Reporte')
+
+        meses_legibles = {'Enero' : 1,
+                          'Febrero' : 2,
+                          'Marzo' : 3,
+                          'Abril' : 4,
+                          'Mayo' : 5,
+                          'Junio' : 6,
+                          'Julio' : 7,
+                          'Agosto' : 8,
+                          'Septiembre' : 9,
+                          'Octubre' : 10,
+                          'Noviembre' : 11,
+                          'Diciembre' : 12}
+
+        mes_de_trabajo = st.selectbox('Selecciona la escala de tiempo: ', meses_legibles.keys())
+
+
         st.divider()
 
         st.title('Filtros 📥')
 
         lista_de_diagramas = ['Diagrama de Area',
                               'Mapa de Calor',
+                              'KPIs',
                               'Diagrama de Barras',
-                              'Gráfico Circular']
+                              'Diagrama de Pastel']
 
         diagramas_seleccionados = st.multiselect('Diagramas afectados por el filtro: ', lista_de_diagramas)
 
@@ -144,20 +162,23 @@ if uploaded_file is not None:
             filtered_data=filtered_data[filtered_data['Trabajador'].isin(trabajadores_selected)]
 
         st.divider()
+
         st.title('⚙️ Configuracion de Graficos️')
 
+        #config unidad de tiempo en diagrama de tiempo
         st.subheader("Diagrama de Area")
-
         timeframes = ['Semana', 'Mes', 'Q', 'Dia']
         timeFrame = st.selectbox('Selecciona la escala de tiempo: ', timeframes)
         timeDict = {'Semana': 'week', 'Mes' : 'month', 'Q' : 'quarter', 'Dia': 'dayofyear'}
         timeFrame = timeDict[timeFrame]
 
+        st.subheader("Diagrama de Pastel")
+        st.write('---pendiente por habilitar---')
+
+
     #Seleccion del tema
         selected_color_theme = 'reds'
-    #st.sidedar --> return filtered_data, selected_color_theme
 
-    #procesamiento de datos
     def datos_por_tipo_de_equipo(data=data):
         # obtener: datos_lineas_produccion
         datos_lineas_produccion = data.copy()
@@ -205,8 +226,6 @@ if uploaded_file is not None:
 
     st.title('Dashboard de Mantenimiento 🔩')
     st.divider()
-
-    #creates streamlit objects
     col1, col2 = st.columns(2)
 
     def columna1(col1=col1):
@@ -223,13 +242,16 @@ if uploaded_file is not None:
         else:
             selected_data = data
 
+        col1.write("Horas Trabajadas por Fecha")
         #horas de trabajo por fecha
         areas_time_plot = alt.Chart(selected_data).mark_area().encode(
             alt.X(f'{timeFrame}(Fecha Inicial):T'),
-            alt.Y('sum(Horas Realizadas):Q'),
-            alt.Color('Zona:N', scale=alt.Scale(scheme=selected_color_theme))
+            alt.Y('sum(Horas Realizadas):Q', axis=alt.Axis(title=None)),
+            alt.Color('Zona:N', scale=alt.Scale(scheme=selected_color_theme), legend=alt.Legend(orient='top'))
         ).interactive()
+
         col1.altair_chart(areas_time_plot, use_container_width=True)
+
 
         #revisar filtro en mapa de calor
         if 'Mapa de Calor' in diagramas_con_filtro:
@@ -248,10 +270,7 @@ if uploaded_file is not None:
             strokeWidth=alt.value(0.25)
         ).interactive()
 
-
         col1.altair_chart(heatmap, use_container_width=True)
-    #corre script de columna 1, no return
-
     columna1(col1)
 
     def columna2(col2 = col2, selected_color_theme=selected_color_theme):
@@ -260,15 +279,60 @@ if uploaded_file is not None:
         :param selected_color_theme: color global para las figuras
         :return: None
         '''
-
+        global mes_de_trabajo
         #Titulo columna
         #col2.title('Tareas')
 
-        if 'Diagrama de Barras' in diagramas_con_filtro:
+        if 'KPIs' in diagramas_con_filtro:
+            # datos con filtro arbitrario aplicado
             selected_data = filtered_data
         else:
             selected_data = data
 
+        try:
+            # datos del mes anterior
+            mes_anterior = selected_data[selected_data['Mes'] == (meses_legibles[mes_de_trabajo] - 1)]
+        except KeyError:
+            mes_anterior = None
+
+        # ahora nos quedamos solo con aquellos del mes de trabajo actual
+        selected_data = selected_data[selected_data['Mes'] == meses_legibles[mes_de_trabajo]]
+
+        val1 = len(selected_data[selected_data['Tipo'] == 'Preventivo'])
+        val2 = len(selected_data[selected_data['Tipo'] == 'Correctivo'])
+        val3 = selected_data['Horas Realizadas'].sum()
+
+        try:
+            # datos del mes anterior
+            dif1 = val1 - len(mes_anterior[mes_anterior['Tipo'] == 'Preventivo'])
+            dif2 = val2 - len(mes_anterior[mes_anterior['Tipo'] == 'Correctivo'] )
+            dif3 = round(val3 - mes_anterior['Horas Realizadas'].sum(), 2)
+
+        except:
+            dif1 = None
+            dif2 = None
+            dif3 = None
+
+        kpi1, kpi2, kpi3 = col2.columns(3)
+
+        kpi1.metric(label="Tareas Preventivas", value=val1, delta=dif1)
+        kpi2.metric(label="Tareas Correctivas", value=val2, delta=dif2)
+        kpi3.metric(label="Horas Totales", value=val3, delta=dif3)
+
+        col2.divider()
+
+
+        #diagrama de barras
+        if 'Diagrama de Barras' in diagramas_con_filtro:
+            # datos con filtro arbitrario aplicado
+            selected_data = filtered_data
+        else:
+            selected_data = data
+
+        # ahora nos quedamos solo con aquellos del mes de trabajo actual
+        selected_data = selected_data[selected_data['Mes'] == meses_legibles[mes_de_trabajo]]
+
+        col2.write('Horas por Trabajador')
         #diagrama de barras
         stacked_bar_chart = alt.Chart(selected_data).mark_bar().encode(
             alt.Y('Trabajador:N', title=None, sort='-x'),
@@ -277,17 +341,19 @@ if uploaded_file is not None:
                       legend=None),
             tooltip=['Trabajador:N', 'sum(Horas Realizadas):Q']
         ).interactive()
-
         col2.altair_chart(stacked_bar_chart, use_container_width=True)
 
         #pie chart
         agg = 'sum'
 
-        if 'Gráfico Circular' in diagramas_con_filtro:
+
+        #diagrama de pastel
+        if 'Diagrama de Pastel' in diagramas_con_filtro:
             selected_data = filtered_data
         else:
             selected_data = data
 
+        selected_data = selected_data[selected_data['Mes'] == meses_legibles[mes_de_trabajo]]  # ahora nos quedamos solo con aquellos del mes de trabajo actual
 
 
         # datos agrupados por tarea
@@ -299,20 +365,26 @@ if uploaded_file is not None:
                 'Incidencias': datos_pie
             })
 
-            # las tareas no muy comunes se agrupan en 'Otras'
-            datos_pie.iloc[mostrar_n, :] = ['Otras', datos_pie.iloc[mostrar_n + 1:, 1].sum()]
-            datos_pie = datos_pie.iloc[:mostrar_n + 1, :]
-            datos_pie.reset_index(drop=True, inplace=True)
+            if mostrar_n < len(datos_pie):
+                # las tareas no muy comunes se agrupan en 'Otras'
+                datos_pie.iloc[mostrar_n, :] = ['Otras', datos_pie.iloc[mostrar_n + 1:, 1].sum()]
+                datos_pie = datos_pie.iloc[:mostrar_n + 1, :]
+                datos_pie.reset_index(drop=True, inplace=True)
 
             pie_chart = alt.Chart(datos_pie).mark_arc(innerRadius=50).encode(
-                alt.Color(f'{color}:N'),
-                alt.Theta('sum(Incidencias):Q', sort=datos_pie['Incidencias']),
-                tooltip=[f'{color}:N', 'sum(Incidencias):N']
+                alt.Color(f'{color}:N', sort=datos_pie[f'{color}'].tolist(), legend=alt.Legend(orient='left')),
+                alt.Theta('Incidencias:Q', sort='-color'),
+                tooltip=[f'{color}:N', 'Incidencias']
             ).interactive()
             return pie_chart
 
         datos_linea, otros, datos_TyH = datos_por_tipo_de_equipo(data=selected_data)
-        pie_chart = make_pie_chart(datos_linea, 9)
-        col2.altair_chart(pie_chart, use_container_width=True)
 
+        pie_chart = make_pie_chart(datos_linea, 9)
+
+        col2.write('Incidencias por Tarea')
+        col2.altair_chart(pie_chart, use_container_width=True)
     columna2(col2 = col2)
+
+    st.divider()
+    st.caption('Apoyo visual para análisis de datos de mantenimiento. \nDiseñado para exponer resumen del mes.')
